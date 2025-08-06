@@ -1,4 +1,5 @@
 import streamlit as st
+import json
 
 
 def get_current_tool_message(tool_args, tool_call_id):
@@ -31,8 +32,6 @@ def format_search_result(results):
     Returns:
         str: Formatted markdown string with search results
     """
-    import json
-
     results = json.loads(results)
 
     answer = ""
@@ -82,11 +81,6 @@ def stream_handler(streamlit_container, agent_executor, inputs, config):
                 if tool_arg["tool_name"]:
                     tool_args.append(tool_arg)
 
-            if hasattr(chunk_msg, "tool_call_chunks") and chunk_msg.tool_call_chunks:
-                if len(chunk_msg.tool_call_chunks) > 0:  # Add None check
-                    # Accumulate tool call arguments
-                    chunk_msg.tool_call_chunks[0]["args"]
-
             if metadata["langgraph_node"] == "tools":
                 # Save tool execution results
                 current_tool_message = get_current_tool_message(
@@ -94,13 +88,13 @@ def stream_handler(streamlit_container, agent_executor, inputs, config):
                 )
                 if current_tool_message:
                     current_tool_message["tool_result"] = chunk_msg.content
-                    with st.status(f'✅ {current_tool_message["tool_name"]}'):
-                        if current_tool_message["tool_name"] == "web_search":
-                            st.markdown(
-                                format_search_result(
-                                    current_tool_message["tool_result"]
-                                )
-                            )
+                    tool_name = current_tool_message["tool_name"]
+                    tool_result = current_tool_message["tool_result"]
+                    with st.status(f"✅ {tool_name}"):
+                        if tool_name == "web_search":
+                            st.markdown(format_search_result(tool_result))
+                        elif tool_name.startswith("sql_db_"):
+                            st.markdown(tool_result)
 
             if metadata["langgraph_node"] == "agent":
                 if chunk_msg.content:

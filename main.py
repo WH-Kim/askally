@@ -1,12 +1,12 @@
-from attr import dataclass
+from dataclasses import dataclass
 import streamlit as st
 from langchain_core.messages.chat import ChatMessage
 from langchain_teddynote import logging
 from langchain_teddynote.messages import random_uuid
-from modules.agent import create_agent_executor
 from dotenv import load_dotenv
 from modules.handler import stream_handler, format_search_result
 from modules.tools import WebSearchTool
+from modules.db_tools import get_db_tools
 
 # API KEY 정보로드
 load_dotenv()
@@ -16,9 +16,11 @@ logging.langsmith("Ask-Ally")
 
 st.title("Ask-Ally 💬")
 st.markdown(
-    f"""NH Digital-X
-    무엇이든 물어보올리
-    오원철, 류호찬, 홍석영, 김원현
+    """
+    **NH Digital-X**
+    #### 무엇이든 물어보올리
+    ---
+    *오원철, 류호찬, 홍석영, 김원현*
     """
 )
 
@@ -57,6 +59,28 @@ with st.sidebar:
             if new_domain and new_domain not in st.session_state["include_domains"]:
                 st.session_state["include_domains"].append(new_domain)
 
+    st.divider()
+
+    st.subheader("DB 연결 설정")
+    db_type = st.selectbox("DB 유형", ["SQLite", "MySQL"], key="db_type")
+
+    if st.session_state.db_type == "SQLite":
+        db_path = st.text_input("SQLite DB 경로", "sqlite.db", key="db_path")
+        st.session_state["db_info"] = {"type": "sqlite", "path": db_path}
+    elif st.session_state.db_type == "MySQL":
+        mysql_host = st.text_input("MySQL Host", "localhost", key="mysql_host")
+        mysql_user = st.text_input("MySQL User", "root", key="mysql_user")
+        mysql_password = st.text_input(
+            "MySQL Password", type="password", key="mysql_password"
+        )
+        mysql_db = st.text_input("MySQL DB Name", "sakila", key="mysql_db")
+        st.session_state["db_info"] = {
+            "type": "mysql",
+            "host": mysql_host,
+            "user": mysql_user,
+            "password": mysql_password,
+            "db": mysql_db,
+        }
     # 현재 등록된 도메인 목록 표시
     st.write("등록된 도메인 목록:")
     for idx, domain in enumerate(st.session_state["include_domains"]):
@@ -102,11 +126,16 @@ def add_message(role, message, msg_type="text", tool_name=""):
             )
         )
     elif msg_type == "tool_result":
+        content = ""
+        if tool_name == "web_search":
+            content = format_search_result(message)
+        else:
+            # For other tools like SQL, just use the raw message
+            content = f"```sql\n{message}\n```"
+
         st.session_state["messages"].append(
             ChatMessageWithType(
-                chat_message=ChatMessage(
-                    role="assistant", content=format_search_result(message)
-                ),
+                chat_message=ChatMessage(role="assistant", content=content),
                 msg_type="tool_result",
                 tool_name=tool_name,
             )
@@ -128,13 +157,27 @@ warning_msg = st.empty()
 
 # 설정 버튼이 눌리면...
 if apply_btn:
-    tool = WebSearchTool().create()
-    tool.max_results = search_result_count
-    tool.include_domains = st.session_state["include_domains"]
-    tool.topic = search_topic
+    tools = []
+    # WebSearchTool 생성
+    web_tool = WebSearchTool(
+        max_results=search_result_count,
+        include_domains=st.session_state["include_domains"],
+        topic=search_topic,
+    ).create()
+    tools.append(web_tool)
+
+    # DB Tool 생성
+    if "db_info" in st.session_state:
+        try:
+            db_tools = get_db_tools(
+                st.session_state["db_info"], model_name=selected_model
+            )
+            tools.extend(db_tools)
+            st.success("DB 연결에 성공했습니다.")
+        except Exception as e:
+            st.error(f"DB 연결에 실패했습니다: {e}")
     st.session_state["react_agent"] = create_agent_executor(
-        model_name=selected_model,
-        tools=[tool],
+        model_name=selected_model, tools=tools
     )
     st.session_state["thread_id"] = random_uuid()
 
@@ -152,8 +195,11 @@ if user_input:
             # 빈 공간(컨테이너)을 만들어서, 여기에 토큰을 스트리밍 출력한다.
             container = st.empty()
 
-            ai_answer = ""
-            container_messages, tool_args, agent_answer = stream_handler(
+            (
+                container_messages,
+                tool_args,
+                agent_answer,
+            ) = stream_handler(  # stream_handler 인수를 올바르게 수정
                 container,
                 agent,
                 {
