@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 from modules.handler import stream_handler, format_search_result
 from modules.tools import WebSearchTool
 from modules.db_tools import get_db_tools
+from modules.rag_tool import BankManualTool
+from modules.agent import create_agent_executor
+import pandas as pd
 
 # API KEY 정보로드
 load_dotenv()
@@ -81,6 +84,11 @@ with st.sidebar:
             "password": mysql_password,
             "db": mysql_db,
         }
+    # RAG 설정
+    st.subheader("RAG 설정")
+    manual_path = st.text_input("매뉴얼 PDF 경로", "bank_manual.pdf")
+    st.session_state["manual_paths"] = [manual_path]
+
     # 현재 등록된 도메인 목록 표시
     st.write("등록된 도메인 목록:")
     for idx, domain in enumerate(st.session_state["include_domains"]):
@@ -129,9 +137,11 @@ def add_message(role, message, msg_type="text", tool_name=""):
         content = ""
         if tool_name == "web_search":
             content = format_search_result(message)
+        elif tool_name == "sql_query":
+            df = pd.read_json(message)
+            content = df.to_markdown(index=False)
         else:
-            # For other tools like SQL, just use the raw message
-            content = f"```sql\n{message}\n```"
+            content = message
 
         st.session_state["messages"].append(
             ChatMessageWithType(
@@ -165,6 +175,12 @@ if apply_btn:
         topic=search_topic,
     ).create()
     tools.append(web_tool)
+
+    # RAG Tool 생성
+    manual_paths = st.session_state.get("manual_paths", [])
+    if manual_paths:
+        rag_tool = BankManualTool(pdf_paths=manual_paths, model_name=selected_model)
+        tools.append(rag_tool)
 
     # DB Tool 생성
     if "db_info" in st.session_state:
