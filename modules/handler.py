@@ -1,18 +1,12 @@
 import streamlit as st
 import json
+import pandas as pd
+import matplotlib.pyplot as plt
+from .pdf_utils import df_to_pdf
 
 
 def get_current_tool_message(tool_args, tool_call_id):
-    """
-    Get the tool message corresponding to the given tool call ID.
-
-    Args:
-        tool_args (list): List of tool arguments
-        tool_call_id (str): ID of the tool call to find
-
-    Returns:
-        dict: Tool message if found, None otherwise
-    """
+    """Get the tool message corresponding to the given tool call ID."""
     if tool_call_id:
         for tool_arg in tool_args:
             if tool_arg["tool_call_id"] == tool_call_id:
@@ -23,17 +17,8 @@ def get_current_tool_message(tool_args, tool_call_id):
 
 
 def format_search_result(results):
-    """
-    Format search results into a markdown string.
-
-    Args:
-        results (str): JSON string containing search results
-
-    Returns:
-        str: Formatted markdown string with search results
-    """
+    """Format search results into a markdown string."""
     results = json.loads(results)
-
     answer = ""
     for result in results:
         answer += f'**[{result["title"]}]({result["url"]})**\n\n'
@@ -44,25 +29,10 @@ def format_search_result(results):
 
 
 def stream_handler(streamlit_container, agent_executor, inputs, config):
-    """
-    Handle streaming of agent execution results in a Streamlit container.
-
-    Args:
-        streamlit_container (streamlit.container): Streamlit container to display results
-        agent_executor: Agent executor instance
-        inputs: Input data for the agent
-        config: Configuration settings
-
-    Returns:
-        tuple: (container, tool_args, agent_answer)
-            - container: Streamlit container with displayed results
-            - tool_args: List of tool arguments used
-            - agent_answer: Final answer from the agent
-    """
-    # Initialize result storage
+    """Handle streaming of agent execution results in a Streamlit container."""
     tool_args = []
     agent_answer = ""
-    agent_message = None  # Pre-declare agent_message variable
+    agent_message = None
 
     container = streamlit_container.container()
     with container:
@@ -70,19 +40,16 @@ def stream_handler(streamlit_container, agent_executor, inputs, config):
             inputs, config, stream_mode="messages"
         ):
             if hasattr(chunk_msg, "tool_calls") and chunk_msg.tool_calls:
-                # Initialize tool call result
                 tool_arg = {
                     "tool_name": "",
                     "tool_result": "",
                     "tool_call_id": chunk_msg.tool_calls[0]["id"],
                 }
-                # Save tool name
                 tool_arg["tool_name"] = chunk_msg.tool_calls[0]["name"]
                 if tool_arg["tool_name"]:
                     tool_args.append(tool_arg)
 
             if metadata["langgraph_node"] == "tools":
-                # Save tool execution results
                 current_tool_message = get_current_tool_message(
                     tool_args, chunk_msg.tool_call_id
                 )
@@ -93,14 +60,31 @@ def stream_handler(streamlit_container, agent_executor, inputs, config):
                     with st.status(f"✅ {tool_name}"):
                         if tool_name == "web_search":
                             st.markdown(format_search_result(tool_result))
+                        elif tool_name == "sql_query":
+                            df = pd.read_json(tool_result)
+                            st.dataframe(df)
+                            chart_fig = None
+                            numeric_df = df.select_dtypes(include="number")
+                            if not numeric_df.empty:
+                                chart_fig, ax = plt.subplots()
+                                numeric_df.plot(kind="bar", ax=ax)
+                                st.pyplot(chart_fig)
+                            pdf_bytes = df_to_pdf(df, chart_fig)
+                            st.download_button(
+                                label="PDF 다운로드",
+                                data=pdf_bytes,
+                                file_name="result.pdf",
+                                mime="application/pdf",
+                            )
                         elif tool_name.startswith("sql_db_"):
+                            st.markdown(tool_result)
+                        elif tool_name == "bank_manual_rag":
                             st.markdown(tool_result)
 
             if metadata["langgraph_node"] == "agent":
                 if chunk_msg.content:
                     if agent_message is None:
                         agent_message = st.empty()
-                    # Accumulate agent message
                     agent_answer += chunk_msg.content
                     agent_message.markdown(agent_answer)
 
