@@ -1,0 +1,4 @@
+{"question": "베스트뱅커 점수가 가장 높은 직원 3명의 이름과 점수를 알려줘.", "query": "SELECT E.EMP_NM, B.TOT_SC FROM bestbanker B JOIN employee E ON B.EMP_NO = E.EMP_NO ORDER BY B.TOT_SC DESC LIMIT 3;"}
+{"question": "2024년 5월 한 달 동안 입출금 거래가 가장 많았던 고객은 누구야?", "query": "SELECT C.CUS_NM, COUNT(T.TRN_NO) AS TRN_CNT FROM transaction T JOIN customer C ON T.CUS_NO = C.CUS_NO WHERE T.TRN_DT BETWEEN '2024-05-01' AND '2024-05-31' AND T.TRN_TYPE IN ('입금', '출금') GROUP BY C.CUS_NM ORDER BY TRN_CNT DESC LIMIT 1;"}
+{"question": "마케팅 동의를 한 고객 중, 가장 최근에 가입한 고객 1명의 정보를 보여줘.", "query": "SELECT * FROM customer WHERE MKT_AGR_YN = 'Y' ORDER BY JOIN_DT DESC LIMIT 1;"}
+{"question": "모든 직원의 평균 연차를 계산해줘.", "query": "SELECT AVG(HIRE_YEAR) AS AVG_HIRE_YEAR FROM employee;"}
