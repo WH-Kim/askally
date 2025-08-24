@@ -17,3 +17,4 @@ RAG_DOCUMENTS_PATH = "rag_documents"
 VECTOR_DB_PATH = "vector_db"
 DB_FILEPATH = check_db_exists("askally.db")
 DB_PATH = f"sqlite:///{DB_FILEPATH}"
+

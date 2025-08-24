@@ -49,6 +49,7 @@ pypdf = "4.*"
 pdfplumber = "0.*"
 pdfminer-six = "20231228"
 pymupdf4llm = "0.*"
+fpdf = "^1.7.2" # 이 라인을 추가하세요
 
 # 시각화 및 사용자 인터페이스 관련 패키지
 matplotlib = "3.*"
