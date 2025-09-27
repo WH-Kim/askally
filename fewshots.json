@@ -1,0 +1,86 @@
+[
+  {
+    "ko": "현재 기준으로 전국 순위 1위부터 10위까지 알려줘.",
+    "sql": "SELECT NAME, ENO, EMP_PPS_SCRTT, NATL_ORD FROM TB_BESTBANKER WHERE BAS_DT = (SELECT MAX(BAS_DT) FROM TB_BESTBANKER) AND NATL_ORD <= 5  ORDER BY NATL_ORD ASC LIMIT 5;"
+  },
+  {
+    "ko": "24년 12월말 기준 영업본부가 경기인 사무소들의 총 수신점수를 알려줘.",
+    "sql": "SELECT SUM(DPZ_MKS) AS total_dpz FROM TB_BESTBANKER WHERE BAS_DT = '20241231' AND PROVNM = '경기';"
+  },
+  {
+    "ko": "전국 순위가 5위 이하인 사무소들의 사무소명과 점수(수신점수+카드점수)를 보여줘.",
+    "sql": "SELECT BRNM, DPZ_MKS + CD_MKS AS total_score FROM TB_BESTBANKER WHERE NATL_ORD <= 5;"
+  },
+  {
+    "ko": "24년 12월말 기준 전남 영업본부의 직급명별 평균 개인여신점수를 구하고 싶어요.",
+    "sql": "SELECT PZCNM, AVG(LA_MKS2) AS avg_la FROM TB_BESTBANKER WHERE BAS_DT = '20241231' AND PROVNM = '전남' GROUP BY PZCNM;"
+  },
+  {
+    "ko": "직급순위가 3위 이하이고 카드점수가 1200점 이상인 직원들의 개인번호와 이름을 알려줘.",
+    "sql": "SELECT ENO, NAME FROM TB_BESTBANKER WHERE PZC_ORD <= 3 AND CD_MKS >= 1200;"
+  },
+  {
+    "ko": "24년 12월말 기준 경남 사무소 중 방카슈랑스점수가 가장 높은 사무소명을 알려줘.",
+    "sql": "SELECT BRNM, BCSR_MKS FROM TB_BESTBANKER WHERE BAS_DT = '20241231' AND PROVNM = '경남' ORDER BY BCSR_MKS DESC LIMIT 1;"
+  },
+  {
+    "ko": "전체 기간(2024‑12‑31) 동안 직급명이 5급인 직원들의 수신점수 평균을 구해줘.",
+    "sql": "SELECT AVG(DPZ_MKS) AS avg_dpz FROM TB_BESTBANKER WHERE BAS_DT = '20241231' AND PZCNM = '5급';"
+  },
+  {
+    "ko": "전남 영업본부의 사무소명별 퇴직연금점수 평균을 구하고, 평균이 3000 이상인 사무소만 보여줘.",
+    "sql": "SELECT BRNM, AVG(RTRPNS_MKS) AS avg_rtr FROM TB_BESTBANKER WHERE PROVNM = '전남' GROUP BY BRNM HAVING AVG(RTRPNS_MKS) >= 3000;"
+  },
+  {
+    "ko": "경기 영업본부에서 직위가 과장보인 사람들의 개인여신점수와 기업여신점수를 출력해줘.",
+    "sql": "SELECT LA_MKS2, LA_MKS4 FROM TB_BESTBANKER WHERE PROVNM = '경기' AND OFT = '과장보';"
+  },
+  {
+    "ko": "24년 12월말 기준 대구 사무소(서문시장지점)의 직급명, 직급순위, 수신점수를 알려줘.",
+    "sql": "SELECT PZCNM, PZC_ORD, DPZ_MKS FROM TB_BESTBANKER WHERE BAS_DT = '20241231' AND PROVNM = '대구' AND BRNM = '서문시장지점';"
+  },
+  {
+    "ko": "전남 영업본부 전체 사무소 중 수익증권점수 평균이 가장 높은 사무소와 그 평균값을 알려줘.",
+    "sql": "SELECT BRC, AVG(BE_MKS2) AS avg_be FROM TB_BESTBANKER WHERE PROVNM = '전남' GROUP BY BRC ORDER BY avg_be DESC LIMIT 1;"
+  },
+  {
+    "ko": "전남 영업본부 안에서 직급명이 4급인 직원들의 총 직원추진점수합계를 구해줘.",
+    "sql": "SELECT SUM(EMP_PPS_SCRTT) AS sum_emp FROM TB_BESTBANKER WHERE PROVNM = '전남' AND PZCNM = '4급';"
+  },
+  {
+    "ko": "서울강서 영업본부의 이수역지점에 있는 직원들의 외환점수와 디지털금융점수를 각각 보여줘.",
+    "sql": "SELECT FX_MKS, ELTFNC_EVL_SCR FROM TB_BESTBANKER WHERE PROVNM = '서울강서' AND BRNM = '이수역지점';"
+  },
+  {
+    "ko": "24년 12월말 기준 전남 사무소 중 직급순위가 1위인 직원들의 이름과 직급명을 알려줘.",
+    "sql": "SELECT NAME, PZCNM FROM TB_BESTBANKER WHERE BAS_DT = '20241231' AND PROVNM = '전남' AND PZC_ORD = 1;"
+  },
+  {
+    "ko": "경기 사무소 전체(오산시지부, NH금융PLUS 분당센터, 수원영통지점 등)의 수신점수 평균을 구해줘.",
+    "sql": "SELECT AVG(DPZ_MKS) AS avg_dpz FROM TB_BESTBANKER WHERE PROVNM = '경기';"
+  },
+  {
+    "ko": "전남 영업본부 안에서 사무소코드가 000628인 사무소의 연령(전체 점수) 합계를 알려줘.",
+    "sql": "SELECT SUM(DPZ_MKS+LA_MKS2+LA_MKS4+BE_MKS2+RTRPNS_MKS+TS_WTH_SCR+FX_MKS+CD_MKS+ELTFNC_EVL_SCR+BCSR_MKS+SBP_TSCR_SCR+YUISR_EVL_SCR+EMP_PPS_SCRTT) AS total_score FROM TB_BESTBANKER WHERE BRC = '000628';"
+  },
+  {
+    "ko": "전남 영업본부의 사무소명별 직급순위 평균을 구하고, 평균이 4 이하인 사무소만 보여줘.",
+    "sql": "SELECT BRNM, AVG(PZC_ORD) AS avg_rank FROM TB_BESTBANKER WHERE PROVNM = '전남' GROUP BY BRNM HAVING AVG(PZC_ORD) <= 4;"
+  },
+  {
+    "ko": "경북 영업본부에 속한 사무소 중 퇴직연금점수가 4000점 이상인 사무소와 해당 점수를 보여줘.",
+    "sql": "SELECT BRNM, RTRPNS_MKS FROM TB_BESTBANKER WHERE PROVNM = '경북' AND RTRPNS_MKS >= 4000;"
+  },
+  {
+    "ko": "전남 영업본부의 직급명이 5급이면서 직위가 과장보인 직원들의 이름과 사무소명을 알려줘.",
+    "sql": "SELECT NAME, BRNM FROM TB_BESTBANKER WHERE PROVNM = '전남' AND PZCNM = '5급' AND OFT = '과장보';"
+  },
+  {
+    "ko": "전체 사무소 중 직급순위가 1위인 직원들의 전체 점수(모든 점수 컬럼 합) 평균을 구해줘.",
+    "sql": "SELECT AVG(DPZ_MKS+LA_MKS2+LA_MKS4+BE_MKS2+RTRPNS_MKS+TS_WTH_SCR+FX_MKS+CD_MKS+ELTFNC_EVL_SCR+BCSR_MKS+SBP_TSCR_SCR+YUISR_EVL_SCR+EMP_PPS_SCRTT) AS avg_total FROM TB_BESTBANKER WHERE PZC_ORD = 1;"
+  },
+  {
+    "ko": "전남 영업본부에서 사무소코드가 000637인 사무소의 직급명별 수신점수 평균을 구하고, 평균이 900점 이상인 직급만 보여줘.",
+    "sql": "SELECT PZCNM, AVG(DPZ_MKS) AS avg_dpz FROM TB_BESTBANKER WHERE PROVNM = '전남' AND BRC = '000637' GROUP BY PZCNM HAVING AVG(DPZ_MKS) >= 900;"
+  }
+]
