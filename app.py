@@ -97,7 +97,6 @@ with st.sidebar:
                 del st.session_state[key]
         st.rerun()
 
-st.title("Dynamic Supervisor Multi-Agent Chat")
 st.markdown(
     f"##### 현재 모델: `{st.session_state.get('model_provider', 'OpenAI')}: {st.session_state.get('selected_model', AVAILABLE_OPENAI_MODELS[0])}`"
 )
@@ -304,9 +303,19 @@ if "messages" not in st.session_state:
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = f"streamlit-thread-{os.urandom(4).hex()}"
 
-for msg in st.session_state.messages:
+for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
+        if "pdf_download" in msg:
+            pdf_info = msg["pdf_download"]
+            st.download_button(
+                label=f"'{pdf_info['name']}' 다운로드 📥",
+                data=pdf_info['bytes'],
+                file_name=pdf_info['name'],
+                mime="application/pdf",
+                use_container_width=True,
+                key=f"download_{st.session_state.thread_id}_{i}" # 고유 키 생성
+            )
 
 if prompt := st.chat_input("질문을 입력하세요..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -342,17 +351,13 @@ if prompt := st.chat_input("질문을 입력하세요..."):
         stream_kwargs = {"config": config, "version": "v2"}
 
         if chat_mode != "Supervisor":
-            # Supervisor가 아닌 경우, entry_router로 직접 라우팅 정보를 전달합니다.
             stream_kwargs["configurable"] = {**config.get("configurable", {}), "next": [chat_mode]}
 
         async def run_and_stream():
             """그래프를 실행하고 UI에 실시간으로 스트리밍합니다."""
             final_answer = ""
-            # Clear previous download link
-            if "pdf_download" in st.session_state:
-                del st.session_state.pdf_download
+            pdf_info_for_message = None  # PDF 정보를 임시 저장할 변수
 
-            # 로그와 도구 출력을 위한 플레이스홀더 생성
             log_placeholder = status_container.empty()
             tool_output_placeholder = status_container.empty()
 
@@ -361,38 +366,29 @@ if prompt := st.chat_input("질문을 입력하세요..."):
 
             current_agent = ""
             
-            async for event in graph.astream_events(
-                inputs, **stream_kwargs
-            ):
+            async for event in graph.astream_events(inputs, **stream_kwargs):
                 kind = event["event"]
 
                 if kind == "on_chain_start":
-                    if event["name"] in [
-                        "Supervisor", "SQLAgent", "RAGAgent",
-                        "ReportAgent", "VisualizationAgent",
-                    ]:
+                    if event["name"] in ["Supervisor", "SQLAgent", "RAGAgent", "ReportAgent", "VisualizationAgent"]:
                         current_agent = event["name"]
                     if event["name"] == "answer_generator":
                         final_answer = ""
 
                 elif kind == "on_tool_start":
                     tool_output_placeholder.empty()
-                    log_content.append(
-                        f"▶️ **{current_agent}**가 **{event['name']}** 도구를 사용하는 중..."
-                    )
+                    log_content.append(f"▶️ **{current_agent}**가 **{event['name']}** 도구를 사용하는 중...")
                     log_placeholder.markdown("\n\n".join(log_content), unsafe_allow_html=True)
 
                 elif kind == "on_tool_end":
                     if log_content and " 중..." in log_content[-1]:
                         log_content.pop()
-                    log_content.append(
-                        f"✅ **{current_agent}**가 **{event['name']}** 도구를 사용했습니다."
-                    )
+                    log_content.append(f"✅ **{current_agent}**가 **{event['name']}** 도구를 사용했습니다.")
                     log_placeholder.markdown("\n\n".join(log_content), unsafe_allow_html=True)
 
                     if event["name"] == "execute_query":
                         output = event["data"]["output"]
-                        st.session_state.last_sql_result = output # 결과 저장
+                        st.session_state.last_sql_result = output
                         with tool_output_placeholder.container():
                             try:
                                 result_data = json.loads(output)
@@ -400,10 +396,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                                     st.error(f"**Query Error ❌**\n```\n{result_data['error']}\n```")
                                 elif "data" in result_data:
                                     st.markdown("**Query Result 📝**")
-                                    df = pd.DataFrame(
-                                        result_data.get("data", []),
-                                        columns=result_data.get("columns", []),
-                                    )
+                                    df = pd.DataFrame(result_data.get("data", []), columns=result_data.get("columns", []))
                                     st.dataframe(df, use_container_width=True)
                                     if result_data.get("truncated"):
                                         st.info(f"결과가 너무 많아 최대 {len(df)}건만 표시합니다.")
@@ -411,28 +404,15 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                                 st.markdown(f"**Result**\n```\n{output}\n```")
                     elif event["name"] == "create_pdf_report":
                         output = event["data"]["output"]
-                        # Check for the English success message from the tool
                         if "Successfully generated professional PDF report:" in output:
                             filename = output.split(":", 1)[1].strip()
                             if os.path.exists(filename):
                                 with open(filename, "rb") as f:
                                     pdf_bytes = f.read()
-                                # Store for displaying outside the expander
-                                st.session_state.pdf_download = {
-                                    "name": filename,
-                                    "bytes": pdf_bytes,
-                                }
-                                # Also show a download button inside the expander
+                                pdf_info_for_message = {"name": filename, "bytes": pdf_bytes}
                                 with tool_output_placeholder.container():
-                                    st.download_button(
-                                        label=f"작업 과정에서 생성된 '{filename}' 다운로드 📥",
-                                        data=pdf_bytes,
-                                        file_name=filename,
-                                        mime="application/pdf",
-                                    )
+                                    st.success(f"'{filename}' 보고서가 성공적으로 생성되었습니다.")
                     elif event["name"] == "create_line_chart":
-                        # create_line_chart는 streamlit 컨텍스트에서 직접 차트를 그리므로
-                        # 별도의 UI 업데이트가 필요 없습니다.
                         pass
 
                 elif kind == "on_chat_model_stream":
@@ -448,27 +428,17 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             log_placeholder.markdown("\n\n".join(log_content), unsafe_allow_html=True)
             answer_placeholder.markdown(final_answer)
             
-            # Display the main download button if available
-            if "pdf_download" in st.session_state:
-                pdf_info = st.session_state.pdf_download
-                answer_placeholder.download_button(
-                    label=f"'{pdf_info['name']}' 다운로드 📥",
-                    data=pdf_info['bytes'],
-                    file_name=pdf_info['name'],
-                    mime="application/pdf",
-                    use_container_width=True,
-                )
-                del st.session_state.pdf_download
+            new_message = {"role": "assistant", "content": final_answer}
+            if pdf_info_for_message:
+                new_message["pdf_download"] = pdf_info_for_message
+            st.session_state.messages.append(new_message)
 
-            st.session_state.messages.append(
-                {"role": "assistant", "content": final_answer}
-            )
         try:
             asyncio.run(run_and_stream())
+            st.rerun() # Re-run to display the new message and download button
         except Exception as e:
             st.error(f"오류가 발생했습니다: {e}")
             error_message = "죄송합니다, 처리 중 오류가 발생했습니다."
             st.markdown(error_message)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": error_message}
-            )
+            st.session_state.messages.append({"role": "assistant", "content": error_message})
+
